@@ -7,6 +7,7 @@ defmodule Mix.Tasks.Swapi do
 
   def run(args) do
     Application.ensure_all_started(:yaml_elixir)
+    Application.ensure_all_started(appname())
     {_, [file | _ ], _} = OptionParser.parse(args)
     s = swagger_paths(file)
     r = routes()
