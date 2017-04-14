@@ -7,32 +7,44 @@ defmodule Mix.Tasks.Swapi do
 
   def run(args) do
     Mix.Task.run "compile"
-    Mix.Task.run "app.start"
     {_, [file | _ ], _} = OptionParser.parse(args)
-    s = swagger_paths(file)
-    r = routes()
-    check_api(s, r)
-    check_swagger(s, r)
+    case File.exists?(file) do
+      true ->
+        Mix.Task.run "app.start"
+        s = swagger_paths(file)
+        r = routes()
+        check_api(s, r)
+        check_swagger(s, r)
+        IO.puts ""
+      false ->
+        IO.puts red("File #{file} doesn't exist")
+    end
   end
 
   def check_api(s, r) do
+    IO.puts ""
     case r -- s do
-      [] -> IO.puts "All API paths are present in swagger"
+      [] ->
+        IO.puts green("All API paths are present in swagger")
       left ->
-        IO.puts :stderr, "API paths not represented in swagger:"
+        IO.puts :stderr, magenta("API paths not represented in swagger:")
+        IO.puts ""
         Enum.map(left, fn {p, v} ->
-                         IO.puts "#{format_verb(v)} #{format_path(p)}"
+                         IO.puts red("#{format_verb(v)} #{format_path(p)}")
                        end)
     end
   end
 
   def check_swagger(s, r) do
+    IO.puts ""
     case s -- r do
-      [] -> IO.puts "All swagger paths are present in API"
+      [] ->
+        IO.puts green("All swagger paths are present in API")
       left ->
-        IO.puts :stderr, "Swagger paths not represented in API:"
+        IO.puts :stderr, magenta("Swagger paths not represented in API:")
+        IO.puts ""
         Enum.map(left, fn {p, v} ->
-                         IO.puts "#{format_verb(v)} #{format_path(p)}"
+                         IO.puts red("#{format_verb(v)} #{format_path(p)}")
                        end)
     end
   end
@@ -93,4 +105,10 @@ defmodule Mix.Tasks.Swapi do
     Application.get_env(app, :namespace)
   end
 
+  defp green(s), do: IO.ANSI.format([:green, s])
+  defp red(s), do: IO.ANSI.format([:red, s])
+  defp magenta(s), do: IO.ANSI.format([:magenta, s])
+
+
 end
+
