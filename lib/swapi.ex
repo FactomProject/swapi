@@ -7,17 +7,18 @@ defmodule Mix.Tasks.Swapi do
 
   def run(args) do
     Mix.Task.run "compile"
-    {_, [file | _ ], _} = OptionParser.parse(args)
+    {opts, [file | _ ], _} = OptionParser.parse(args)
+    uniform = opts[:uniform]
     case File.exists?(file) do
       true ->
         Mix.Task.run "app.start"
-        s = swagger_paths(file)
-        r = routes()
+        s = swagger_paths(file, uniform)
+        r = routes(uniform)
         check_api(s, r)
         check_swagger(s, r)
         IO.puts ""
       false ->
-        IO.puts red("File #{file} doesn't exist")
+        IO.puts :stderr, red("File #{file} doesn't exist")
     end
   end
 
@@ -28,10 +29,11 @@ defmodule Mix.Tasks.Swapi do
         IO.puts green("All API paths are present in swagger")
       left ->
         IO.puts :stderr, magenta("API paths not represented in swagger:")
-        IO.puts ""
-        Enum.map(left, fn {p, v} ->
-                         IO.puts red("#{format_verb(v)} #{format_path(p)}")
-                       end)
+        IO.puts :stderr, ""
+        Enum.map(left,
+          fn {p, v} ->
+            IO.puts :stderr, red("#{format_verb(v)} #{format_path(p)}")
+          end)
     end
   end
 
@@ -42,24 +44,25 @@ defmodule Mix.Tasks.Swapi do
         IO.puts green("All swagger paths are present in API")
       left ->
         IO.puts :stderr, magenta("Swagger paths not represented in API:")
-        IO.puts ""
-        Enum.map(left, fn {p, v} ->
-                         IO.puts red("#{format_verb(v)} #{format_path(p)}")
-                       end)
+        IO.puts :stderr, ""
+        Enum.map(left,
+          fn {p, v} ->
+            IO.puts :stderr, red("#{format_verb(v)} #{format_path(p)}")
+          end)
     end
   end
 
   defp format_verb(verb), do: verb |> to_string() |> String.upcase
   defp format_path(path), do: "/" <> Enum.join(path, "/")
 
-  defp swagger_paths(filename) do
+  defp swagger_paths(filename, uniform) do
     s = swagger_file(filename)
     s["paths"]
     |> Enum.flat_map(fn {path, methods} ->
                   Enum.map(methods, fn {name, _} -> {path, name} end)
                 end)
     |> Enum.filter(fn {_p, m} -> m != "parameters" end)
-    |> Enum.map(fn {p, m} -> {normalize_path(p), String.to_atom(m)} end)
+    |> Enum.map(fn {p, m} -> {normalize_path(p, uniform), String.to_atom(m)} end)
   end
 
   defp swagger_file(filename) do
@@ -67,11 +70,12 @@ defmodule Mix.Tasks.Swapi do
     YamlElixir.read_from_file path
   end
 
-  defp normalize_path(path) do
+  defp normalize_path(path, uniform) do
     path
     |> String.split("/")
     |> tl
     |> Enum.map(&normalize_param/1)
+    |> mk_uniform_paths(uniform)
   end
 
   defp normalize_param("{" <> param) do
@@ -82,12 +86,25 @@ defmodule Mix.Tasks.Swapi do
   end
   defp normalize_param(param), do: param
 
-  defp routes do
+  defp mk_uniform_paths(path, true), do: params(path, [], 1)
+  defp mk_uniform_paths(path, _), do: path
+
+  defp params([], ps, _), do: Enum.reverse(ps)
+  defp params([h|t], ps, num) do
+    {p, num1} = param(h, num)
+    params(t, [p|ps], num1)
+  end
+
+  defp param(":" <> _param, num), do: {":param#{num}", num + 1}
+  defp param(p, num), do: {p, num}
+
+
+  defp routes(uniform) do
     r = router()
     r.__routes__()
     |> Enum.map(fn r -> {r.path, r.verb} end)
     |> Enum.filter(fn {_p, v} -> v != :patch end)
-    |> Enum.map(fn {p, v} -> {normalize_path(p), v} end)
+    |> Enum.map(fn {p, v} -> {normalize_path(p, uniform), v} end)
   end
 
   defp router do

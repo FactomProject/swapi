@@ -30,6 +30,20 @@ mix swapi swagger.yaml
 
 where `swagger.yaml` is a swagger specification file.
 
+### Uniform parameters in paths
+
+Sometimes paths in swagger file and routes are consistent but because
+documentation, and developer convenience could differ parameters have different
+names, like: `/users/:user_id` vs. `/users/:id`. You may use `--uniform` option
+which will change given path parameters to `:param1`, `:param2` etc.
+
+```elixir
+mix swapi swagger.yaml --uniform
+```
+
+This way you can still check if documentation and routes are consistent but
+preserve naming (which is hard).
+
 ## Misc
 
 Right now `swapi` omits `PATCH` methods, as phoenix generates those and `PUT`
