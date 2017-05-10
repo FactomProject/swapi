@@ -12,6 +12,7 @@ defmodule Mix.Tasks.Swapi do
     case File.exists?(file) do
       true ->
         Mix.Task.run "app.start"
+        Application.ensure_all_started(:swapi)
         s = swagger_paths(file, uniform)
         r = routes(uniform)
         check_api(s, r)
